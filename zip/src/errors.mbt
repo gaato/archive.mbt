@@ -1,0 +1,115 @@
+// Derived from moonbitlang/core archive/zip/errors.mbt at 25a579771; modified.
+// Copyright 2026 International Digital Economy Academy
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+///|
+/// Which bounded resource was exceeded during a bounded read or write. The
+/// payload-related kinds guard decoded allocations; `DirectoryBytes` bounds
+/// metadata-only directory input; `OutputBytes` bounds serialization size.
+#derive(Eq, @debug.Debug)
+pub(all) enum LimitKind {
+  PackageBytes
+  Entries
+  EntryUncompressedBytes
+  TotalUncompressedBytes
+  DirectoryBytes
+  OutputBytes
+}
+
+///|
+/// Machine-readable category for a ZIP container failure. The accompanying
+/// `ZipError` message is intended for diagnostics rather than branching.
+#derive(Eq, @debug.Debug)
+pub(all) enum ZipErrorKind {
+  /// The input ended before a complete record, header, payload, or trailer.
+  Truncated
+  /// A fixed signature (local, central, end-of-central, zip64) was wrong.
+  InvalidSignature
+  /// No end-of-central-directory record could be located.
+  MissingEndOfCentral
+  /// Contradictory container structure, including multiple structurally valid
+  /// end-of-central records whose comments reach EOF (APPNOTE 4.3.1).
+  Corrupt
+  /// The entry uses a compression method this package cannot decode. Carries
+  /// the method code from the central directory.
+  UnsupportedCompression(Int32)
+  /// An entry or archive name is not valid UTF-8.
+  InvalidUtf8
+  /// The archive uses a ZIP feature this package does not support (encryption,
+  /// multi-disk, ambiguous or inconsistent records, ...).
+  UnsupportedFeature
+  /// A compression codec failed; its original error category is retained.
+  Codec(@codec.ErrorKind)
+  /// A range reader response did not match its requested byte count,
+  /// or nonempty input was supplied without an active range request.
+  InvalidRead(expected~ : Int32, actual~ : Int32)
+  /// The requested directory entry index is out of bounds.
+  InvalidEntryIndex(Int32)
+  /// Entry size declarations or decoded sizes are inconsistent, or a `Writer`
+  /// entry received more or fewer bytes than its declared size.
+  SizeMismatch
+  /// The entry payload does not match its stored CRC-32.
+  ChecksumMismatch
+  /// A caller-supplied resource limit was exceeded.
+  /// The actual value is observed usage when processing stopped, not necessarily
+  /// the complete decoded size of an entry that exceeded its output limit.
+  LimitExceeded(kind~ : LimitKind, limit~ : UInt64, observed~ : UInt64)
+  /// The caller's cancellation callback returned `true` during a bounded read.
+  Cancelled
+  /// A caller-supplied argument is out of range, such as a negative limit.
+  InvalidArgument
+  /// A `Writer` call is not valid in its current state: no open entry, an
+  /// entry already open, a reentrant sink call, or use after finish/failure.
+  InvalidState
+}
+
+///|
+/// Structured ZIP failure: a stable category plus a human-readable diagnostic.
+///
+/// `Show` prints `<kind>: <message>` on one line, such as
+/// `MissingEndOfCentral: zip: end of central directory not found`.
+/// `@debug.Debug` prints the constructor form.
+#derive(@debug.Debug)
+pub suberror ZipError {
+  ZipError(ZipErrorKind, String)
+}
+
+///|
+/// Display the category followed by the human-readable diagnostic.
+pub impl Show for ZipError with fn output(self, logger) {
+  let ZipError(kind, message) = self
+  // Sized kinds are written by hand so the line never wraps, whatever the
+  // width of the numbers; the rest use their debug spelling.
+  match kind {
+    LimitExceeded(kind~, limit~, observed~) =>
+      logger <+
+        $|LimitExceeded(kind=\{@debug.to_string(kind)}, limit=\{limit}, observed=\{observed})
+    _ => logger.write_string(@debug.to_string(kind))
+  }
+  logger <+ ": \{message}"
+}
+
+///|
+fn check_cancelled(cancelled : () -> Bool) -> Unit raise ZipError {
+  if cancelled() {
+    raise ZipError(Cancelled, "zip: cancelled")
+  }
+}
+
+///|
+/// Preserve the codec category; container cancellation is checked separately.
+fn wrap_codec_error(err : @codec.CodecError) -> ZipError {
+  let CodecError(kind, message) = err
+  ZipError(Codec(kind), message)
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", ":timezone(Asia/Tokyo)"],
+  "schedule": ["before 9am on monday"],
+  "packageRules": [{
+    "description": "Merge non-major action updates after CI. Move the MoonBit image by hand with the local toolchain and four-target validation, because its compiler and core APIs move together.",
+    "matchManagers": ["github-actions"],
+    "matchDepTypes": ["action"],
+    "matchUpdateTypes": ["minor", "patch", "digest", "pinDigest"],
+    "automerge": true,
+    "automergeType": "pr",
+    "platformAutomerge": false
+  }]
+}

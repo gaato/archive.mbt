@@ -1,0 +1,10 @@
+// Repository-only producer for scripts/interop.mbtx.
+import {
+  "gaato/zip",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/encoding/hex",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "js + native + wasm + wasm-gc"

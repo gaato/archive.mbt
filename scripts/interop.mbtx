@@ -1,0 +1,84 @@
+----
+import {
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/fs",
+  "moonbitlang/core/async/shell",
+  "moonbitlang/core/encoding/hex",
+  "moonbitlang/core/env",
+}
+----
+
+// Test container integrity and exact member contents without extraction.
+let check_python : String =
+  #|import sys,zipfile
+  #|with zipfile.ZipFile(sys.argv[1]) as z:
+  #|    assert z.namelist()==['payload.txt']
+  #|    assert z.testzip() is None
+  #|    assert z.read('payload.txt')==b'Archive interop: Store, Deflate, Zstandard.\n'*32
+
+async fn main {
+  let mut python = "python3"
+  try {
+    @shell.Cmd("python3.14", ["-I", "-c", "import zipfile"]).output().check()
+    python = "python3.14"
+  } catch { _ => () }
+  let python_zstd = @shell.Cmd(python, ["-I", "-c", "import zipfile; raise SystemExit(0 if hasattr(zipfile,'ZIP_ZSTANDARD') else 1)"]).status() == 0
+  let unzip = try { @shell.Cmd("unzip", ["-v"]).output().check(); true } catch { _ => false }
+  let seven = try { @shell.Cmd("7z", ["i"]).output().check(); true } catch { _ => false }
+  if !unzip { println("SKIP unzip: command absent") }
+  if !seven { println("SKIP 7z: command absent") }
+  let target = match @env.args()[1:] {
+    ["--target", target] if ["native", "js", "wasm", "wasm-gc"].contains(target) => target
+    [] => "native"
+    _ => fail("usage: moon run scripts/interop.mbtx -- [--target native|js|wasm|wasm-gc]")
+  }
+  let directory = "_build/interop-\{target}"
+  if !@fs.exists(directory) { @fs.mkdir(directory, recursive=true) }
+  let result = @shell.Cmd("moon", ["run", "--target", target, "zip/src/internal/interop"], env={"MOON_CC": @env.get_env_var("MOON_CC").unwrap_or("cc")}).output(max_output_bytes=1 << 24)
+  if result.exit_code() != 0 {
+    eprintln(result.stdout())
+    eprintln(result.stderr())
+    fail("ZIP producer failed for \{target}")
+  }
+  let mut count = 0
+  let mut checks = 0
+  let mut skipped = 0
+  for line in result.stdout().split("\n") {
+    if line.split(" ").to_array() is [name, encoded] {
+      guard name.has_prefix("store-") || name.has_prefix("deflate-") || name.has_prefix("zstd-") else { fail("unexpected producer output") }
+      guard !name.contains("/") else { fail("unsafe archive name") }
+      let bytes = @hex.decode(encoded)
+      let path = "\{directory}/\{name}.zip"
+      @fs.write_binary(path, bytes)
+      let native_path = "_build/interop-native/\{name}.zip"
+      if target != "native" && @fs.exists(native_path) {
+        guard bytes == @fs.read_binary(native_path) else { fail("\{name}: \{target} output differs from native") }
+      }
+      if !name.has_prefix("zstd-") || python_zstd {
+        @shell.Cmd(python, ["-I", "-c", check_python, path]).run()
+        checks += 1
+      } else {
+        println("SKIP \{name} with Python: zipfile has no ZIP_ZSTANDARD")
+        skipped += 1
+      }
+      if unzip {
+        let tested = @shell.Cmd("unzip", ["-t", path]).output()
+        if tested.exit_code() == 81 && name.has_prefix("zstd-") && tested.stdout().contains("unsupported compression") {
+          println("SKIP \{name} with unzip: unsupported method 93")
+          skipped += 1
+        } else {
+          if tested.exit_code() != 0 { eprintln(tested.stdout()); eprintln(tested.stderr()) }
+          tested.check()
+          checks += 1
+        }
+      }
+      if seven {
+        @shell.Cmd("7z", ["t", path], stdout=Discard).run()
+        checks += 1
+      }
+      count += 1
+    }
+  }
+  guard count == 9 else { fail("expected nine archives, got \{count}") }
+  println("interop \{target}: \{count} archives, \{checks} external checks passed, \{skipped} unsupported checks skipped")
+}

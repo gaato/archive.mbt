@@ -1,0 +1,21 @@
+import {
+  "moonbitlang/core/builtin",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/encoding/utf8" @encoding/utf8,
+  "gaato/deflate",
+  "gaato/zstd",
+  "gaato/crc",
+  "gaato/codec",
+  "gaato/codec_bytes",
+}
+
+import {
+  "moonbitlang/core/test",
+} for "test"
+
+import {
+  "moonbitlang/core/test",
+} for "wbtest"
+
+supported_targets = "js + native + wasm + wasm-gc"

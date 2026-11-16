@@ -1,0 +1,4 @@
+{
+  "ledgered": ["zip"],
+  "coverage_scope": {"zip": ["src"]}
+}

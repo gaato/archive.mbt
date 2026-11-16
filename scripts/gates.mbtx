@@ -1,0 +1,52 @@
+----
+import {
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/fs",
+  "moonbitlang/core/async/shell",
+  "moonbitlang/core/env",
+}
+----
+
+// One local and CI entry point; no VCS operations or publication.
+async fn run(args : Array[String]) -> Unit {
+  println("+ moon \{args.join(" ")}")
+  let status = @shell.Cmd("moon", args, env={"MOON_CC": @env.get_env_var("MOON_CC").unwrap_or("cc")}).status()
+  if status != 0 { @env.exit(status) }
+}
+
+async fn attribution() -> Unit {
+  for name in ["checksum", "conversion", "directory", "directory_reader", "entry_reader", "errors", "extends", "owned_buffer", "reader", "reader_byte", "reader_zip64", "stream_writer", "types", "writer", "zip_test", "range_test", "zip_coverage_wbtest", "stream_writer_wbtest", "declared_size_test", "error_traits_test", "zip_bytes_wbtest"] {
+    let path = "zip/src/\{name}.mbt"
+    let text = @fs.read_text(path)
+    guard text.has_prefix("// Derived from moonbitlang/core archive/zip/\{name}.mbt at 25a579771; modified.\n") && text.contains("Copyright 2026 International Digital Economy Academy") else {
+      fail("missing upstream attribution: \{path}")
+    }
+  }
+  guard @fs.read_text("LICENSE").contains("Apache License") && @fs.read_text("NOTICE").contains("International Digital Economy Academy") && @fs.read_text("docs/upstream.md").contains("25a579771") else {
+    fail("missing license or provenance")
+  }
+  guard @fs.read_text("zip/src/codecs.mbt").has_prefix("// Derived from moonbitlang/core archive/zip/reader.mbt at 25a579771; modified.\n") else {
+    fail("missing attribution on extracted codec adapter")
+  }
+  println("attribution: OK (21 ported files and extracted codec adapter)")
+  guard @fs.read_text("zip/LICENSE") == @fs.read_text("LICENSE") && @fs.read_text("zip/NOTICE") == @fs.read_text("NOTICE") else {
+    fail("published module license/notice differs from repository copy")
+  }
+}
+
+async fn main {
+  attribution()
+  run(["fmt", "--check"])
+  run(["fmt", "--check", "scripts/gates.mbtx", "scripts/coverage_report.mbtx", "scripts/gen_interop.mbtx", "scripts/gen_python_oracles.mbtx", "scripts/interop.mbtx"])
+  run(["info"])
+  run(["check", "--target", "all", "--deny-warn"])
+  run(["test", "--target", "all"])
+  run(["run", "scripts/docs_audit.mbtx", "--self-test"])
+  run(["run", "scripts/gen_interop.mbtx", "--check"])
+  run(["run", "scripts/gen_python_oracles.mbtx", "--check"])
+  run(["run", "scripts/coverage_report.mbtx"])
+  for target in ["native", "js", "wasm", "wasm-gc"] {
+    run(["run", "scripts/interop.mbtx", "--", "--target", target])
+  }
+  run(["fmt", "--check"])
+}
