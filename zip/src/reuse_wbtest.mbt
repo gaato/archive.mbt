@@ -153,3 +153,42 @@ test "sink failure releases both cached encoders and the shared scratch" {
   assert_true(writer.scratch.is_empty())
   assert_true(writer.directory.is_empty())
 }
+
+///|
+test "collecting full 64 KiB sink chunks remains safe across entries" {
+  for compression in [Deflate, Zstandard] {
+    let chunks : Array[Bytes] = []
+    let immediate = @buffer.Buffer()
+    let mut full = 0
+    let writer = Writer(
+      view => {
+        if view.length() == 65536 {
+          full += 1
+        }
+        chunks.push(view.to_owned())
+        immediate.write_bytes(view)
+      },
+      level=0,
+    )
+    let mut state = 0x31415926U
+    let data = Bytes::makei(200000, _ => {
+      state = state * 1664525U + 1013904223U
+      (state >> 24).to_byte()
+    })
+    for name in ["first", "second"] {
+      writer.begin_entry(name, compression~)
+      writer.write(data)
+      writer.end_entry()
+    }
+    writer.finish()
+    assert_true(full >= 2)
+    let collected = @buffer.Buffer()
+    for chunk in chunks {
+      collected.write_bytes(chunk)
+    }
+    assert_true(collected.to_bytes() == immediate.to_bytes())
+    let archive = read_all(collected.to_bytes())
+    assert_eq(archive.get("first"), Some(data[:]))
+    assert_eq(archive.get("second"), Some(data[:]))
+  }
+}

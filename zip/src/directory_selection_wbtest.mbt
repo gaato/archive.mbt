@@ -1,5 +1,5 @@
 ///|
-fn review2_u32(
+fn write_u32_at(
   bytes : FixedArray[Byte],
   offset : Int32,
   value : UInt32,
@@ -10,46 +10,7 @@ fn review2_u32(
 }
 
 ///|
-test "review2: collecting full 64 KiB sink chunks remains safe across entries" {
-  for compression in [Deflate, Zstandard] {
-    let chunks : Array[Bytes] = []
-    let immediate = @buffer.Buffer()
-    let mut full = 0
-    let writer = Writer(
-      view => {
-        if view.length() == 65536 {
-          full += 1
-        }
-        chunks.push(view.to_owned())
-        immediate.write_bytes(view)
-      },
-      level=0,
-    )
-    let mut state = 0x31415926U
-    let data = Bytes::makei(200000, _ => {
-      state = state * 1664525U + 1013904223U
-      (state >> 24).to_byte()
-    })
-    for name in ["first", "second"] {
-      writer.begin_entry(name, compression~)
-      writer.write(data)
-      writer.end_entry()
-    }
-    writer.finish()
-    assert_true(full >= 2)
-    let collected = @buffer.Buffer()
-    for chunk in chunks {
-      collected.write_bytes(chunk)
-    }
-    assert_true(collected.to_bytes() == immediate.to_bytes())
-    let archive = read_all(collected.to_bytes())
-    assert_eq(archive.get("first"), Some(data[:]))
-    assert_eq(archive.get("second"), Some(data[:]))
-  }
-}
-
-///|
-test "review2: prefixed classic locator-like filenames stay classic" {
+test "prefixed classic locator-like filenames stay classic" {
   let names = [
     "PK\u{06}\u{07}" + "a".repeat(16),
     "PK\u{06}\u{07}" + "\u{00}".repeat(12) + "\u{01}\u{00}\u{00}\u{00}",
@@ -72,7 +33,7 @@ test "review2: prefixed classic locator-like filenames stay classic" {
 }
 
 ///|
-test "review2: earliest EOF-reaching EOCD survives later adjacent decoys" {
+test "earliest EOF-reaching EOCD survives later adjacent decoys" {
   let decoy = b"PK\x05\x06" + Bytes::make(18, 0)
   for prefix in [b"", Bytes::make(100, b'p')] {
     let archive = Archive()
@@ -86,7 +47,7 @@ test "review2: earliest EOF-reaching EOCD survives later adjacent decoys" {
       LimitExceeded(kind=Entries, limit=0UL, observed=1UL),
     )
     expect_zip_kind(
-      () => ignore(review3_directory(bytes, DirectoryLimits(max_entries=0UL))),
+      () => ignore(directory_by_ranges(bytes, DirectoryLimits(max_entries=0UL))),
       LimitExceeded(kind=Entries, limit=0UL, observed=1UL),
     )
     // Even a comment decoy claiming an adjacent directory cannot replace
@@ -95,8 +56,8 @@ test "review2: earliest EOF-reaching EOCD survives later adjacent decoys" {
     let fake = bytes.length() - 22
     changed[fake + 8] = 1
     changed[fake + 10] = 1
-    review2_u32(changed, fake + 12, 46U)
-    review2_u32(changed, fake + 16, (fake - 46).reinterpret_as_uint())
+    write_u32_at(changed, fake + 12, 46U)
+    write_u32_at(changed, fake + 16, (fake - 46).reinterpret_as_uint())
     let bytes = Bytes::from_array(changed)
     assert_eq(read_all(bytes).get("x"), Some(b"payload"[:]))
     assert_eq(read_member(bytes, listing(bytes), 0, 1), b"payload")
@@ -104,14 +65,14 @@ test "review2: earliest EOF-reaching EOCD survives later adjacent decoys" {
 }
 
 ///|
-test "review2: two signature-valid directories are ambiguous before extent checks" {
+test "two signature-valid directories are ambiguous before extent checks" {
   let archive = Archive()
   archive.add("x", b"payload", compression=Store)
   let plain = write(archive)
   let end = plain.length() - 22
   let central = read_u32_le_at_raw(plain, end + 16).reinterpret_as_int()
   let entry = plain[central:end].to_owned().to_fixedarray()
-  review2_u32(entry, 42, 100U)
+  write_u32_at(entry, 42, 100U)
   let entry = Bytes::from_array(entry)
   let decoy = classic_eocd(0, 0, 2, 2, entry.length() * 2, 100 + end + 22)
   archive.set_comment(entry + entry + decoy)
@@ -130,7 +91,7 @@ test "review2: two signature-valid directories are ambiguous before extent check
 }
 
 ///|
-test "review2: a real locator target with conflicting classic fields stays classic" {
+test "a real locator target with conflicting classic fields stays classic" {
   for
     (count, size, offset) in [
       (2UL, 66UL, 50UL),
@@ -171,7 +132,7 @@ test "review2: a real locator target with conflicting classic fields stays class
 }
 
 ///|
-test "review2: eager and range readers skip framed directory signatures" {
+test "eager and range readers skip framed directory signatures" {
   for size in [0, 8, 65535] {
     let signature = @buffer.Buffer()
     signature.write_uint_le(DIRECTORY_SIGNATURE_SIG)
@@ -186,7 +147,7 @@ test "review2: eager and range readers skip framed directory signatures" {
       let end = plain.length() - 22 - comment.length()
       let bytes = plain[:end].to_owned() + signature + plain[end:].to_owned()
       let changed = bytes.to_fixedarray()
-      review2_u32(
+      write_u32_at(
         changed,
         end + signature.length() + 12,
         (47 + signature.length()).reinterpret_as_uint(),

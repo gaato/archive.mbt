@@ -38,8 +38,8 @@ No upstream issue or pull request is opened by this implementation task.
   record/container truncation stays `Truncated`. Codec diagnostic messages
   consequently differ. Cancellation remains ZIP's `Cancelled`.
 - `fast_store` is absent from both `write` and `Writer`.
-- The level argument goes unchanged to the selected codec. As clarified by
-  the user, ZIP imposes no level range or clamping. Deflate 0.4.0 adds levels
+- The level argument goes unchanged to the selected codec: ZIP itself
+  defines no level range, so the module does not clamp it. Deflate 0.4.0 adds levels
   10 through 12; tests cover forwarding them through whole and streaming
   writers, with a corpus whose level-12 encoding differs from level 9.
   Python zipfile, unzip and 7-Zip validate level-12 output on all targets.
@@ -169,8 +169,7 @@ error for the empty decoy; that is not evidence of recovering the real entries.
 The gaato row is asserted with names and contents on both APIs, plus separate
 tests for two valid EOF-reaching records, tier priority and earliest errors.
 
-The initial port deferred Deflate64 until its decoder was published. The
-0.4.0 dependency now enables the approved read-only method-9 design; other
+Deflate64 (method 9) is read-only, through gaato/deflate/deflate64; other
 unknown method numbers still raise `UnsupportedCompression(id)` before data
 reads. A decoded Deflate64 archive must have those entries removed or copied
 into new writable-method entries before it can be serialized.

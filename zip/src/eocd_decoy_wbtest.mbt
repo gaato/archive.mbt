@@ -1,5 +1,5 @@
 ///|
-fn review3_directory(
+fn directory_by_ranges(
   bytes : Bytes,
   limits : DirectoryLimits,
 ) -> Directory raise ZipError {
@@ -15,7 +15,7 @@ fn review3_directory(
 }
 
 ///|
-test "review3: agreeing ZIP64 prefix decoy retries classic before limits" {
+test "agreeing ZIP64 prefix decoy retries classic before limits" {
   let locator = @buffer.Buffer()
   locator.write_uint_le(ZIP64_LOCATOR_SIG)
   locator.write_uint_le(0U)
@@ -58,7 +58,7 @@ test "review3: agreeing ZIP64 prefix decoy retries classic before limits" {
         ).get(name),
         Some(b"payload"[:]),
       )
-      let directory = review3_directory(
+      let directory = directory_by_ranges(
         bytes,
         DirectoryLimits(max_entries=1UL, max_directory_bytes=66UL),
       )
@@ -69,14 +69,14 @@ test "review3: agreeing ZIP64 prefix decoy retries classic before limits" {
 }
 
 ///|
-test "review3: adjusted empty comment decoy is now ambiguous" {
+test "adjusted empty comment decoy is ambiguous" {
   for prefix in [b"", Bytes::make(100, b'p')] {
     let archive = Archive()
     archive.add("x", b"payload", compression=Store)
     archive.set_comment(b"PK\x05\x06" + Bytes::make(18, 0))
     let bytes = prefix + write(archive)
     let changed = bytes.to_fixedarray()
-    review2_u32(
+    write_u32_at(
       changed,
       bytes.length() - 6,
       (bytes.length() - 22).reinterpret_as_uint(),
@@ -89,7 +89,7 @@ test "review3: adjusted empty comment decoy is now ambiguous" {
 }
 
 ///|
-test "review3: comment decoy limits cannot block the real EOCD" {
+test "comment decoy limits cannot block the real EOCD" {
   let archive = Archive()
   archive.add("x", b"payload", compression=Store)
   archive.set_comment(b"PK\x05\x06" + Bytes::make(18, 0))
@@ -100,8 +100,8 @@ test "review3: comment decoy limits cannot block the real EOCD" {
   changed[decoy + 9] = 3
   changed[decoy + 10] = 0xe8
   changed[decoy + 11] = 3
-  review2_u32(changed, decoy + 12, 47U)
-  review2_u32(changed, decoy + 16, (decoy - 47).reinterpret_as_uint())
+  write_u32_at(changed, decoy + 12, 47U)
+  write_u32_at(changed, decoy + 16, (decoy - 47).reinterpret_as_uint())
   let bytes = Bytes::from_array(changed)
   assert_eq(
     read_all(
@@ -114,7 +114,7 @@ test "review3: comment decoy limits cannot block the real EOCD" {
     ).get("x"),
     Some(b"payload"[:]),
   )
-  let directory = review3_directory(
+  let directory = directory_by_ranges(
     bytes,
     DirectoryLimits(max_entries=1UL, max_directory_bytes=47UL),
   )
@@ -122,7 +122,7 @@ test "review3: comment decoy limits cannot block the real EOCD" {
 }
 
 ///|
-test "review3: concatenated archives prefer tier 1 and trailing data uses tier 2" {
+test "concatenated archives prefer tier 1 and trailing data uses tier 2" {
   let first = Archive()
   first.add("first", b"one", compression=Store)
   let second = Archive()

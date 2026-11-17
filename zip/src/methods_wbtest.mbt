@@ -23,7 +23,7 @@ test "empty archives and members work through both reader APIs" {
       expect_zip_kind(() => ignore(read_all(empty)), UnsupportedFeature)
       expect_zip_kind(() => ignore(listing(empty)), UnsupportedFeature)
       let adjusted = empty.to_fixedarray()
-      review2_u32(
+      write_u32_at(
         adjusted,
         prefix.length() + 16,
         prefix.length().reinterpret_as_uint(),

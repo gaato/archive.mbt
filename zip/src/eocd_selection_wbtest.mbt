@@ -56,7 +56,7 @@ test "EOCD selection: two valid nonempty EOF records are Corrupt before limits" 
     Corrupt,
   )
   expect_zip_kind(
-    () => ignore(review3_directory(bytes, DirectoryLimits(max_entries=0UL))),
+    () => ignore(directory_by_ranges(bytes, DirectoryLimits(max_entries=0UL))),
     Corrupt,
   )
   try {

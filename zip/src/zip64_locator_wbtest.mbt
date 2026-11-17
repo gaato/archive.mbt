@@ -1,5 +1,5 @@
 ///|
-fn review_zip64(comment : Bytes) -> Bytes raise {
+fn stored_archive_with_comment(comment : Bytes) -> Bytes raise {
   let sink = @buffer.Buffer()
   let writer = Writer(bytes => sink.write_bytes(bytes))
   writer.begin_entry("x", compression=Store)
@@ -10,7 +10,7 @@ fn review_zip64(comment : Bytes) -> Bytes raise {
 }
 
 ///|
-fn review_zip64_extension(bytes : Bytes, extension : Bytes) -> Bytes {
+fn zip64_with_extension(bytes : Bytes, extension : Bytes) -> Bytes {
   let end = find_end_of_central(bytes).unwrap().offset
   let locator = end - 20
   let record = locator - 56
@@ -24,7 +24,7 @@ fn review_zip64_extension(bytes : Bytes, extension : Bytes) -> Bytes {
 }
 
 ///|
-test "review: maximum classic comment does not probe a locator in a filename" {
+test "maximum classic comment does not probe a locator in a filename" {
   let name = "PK\u{06}\u{07}" + "a".repeat(16)
   for comment in [b"", Bytes::make(65535, b'c')] {
     let archive = Archive()
@@ -50,14 +50,14 @@ test "review: maximum classic comment does not probe a locator in a filename" {
 }
 
 ///|
-test "review: valid ZIP64 locator outranks an end signature in the extensible sector" {
+test "valid ZIP64 locator outranks an end signature in the extensible sector" {
   let fake : Array[Byte] = []
   push_u32le(fake, ZIP64_EOCD_SIG)
   push_u64le(fake, 44UL)
   fake.append(Array::make(44, b'\x00'))
   for comment in [b"", Bytes::make(65535, b'c')] {
-    let bytes = review_zip64_extension(
-      review_zip64(comment),
+    let bytes = zip64_with_extension(
+      stored_archive_with_comment(comment),
       Bytes::from_array(fake),
     )
     assert_eq(read_all(bytes).get("x"), Some(b"payload"[:]))
@@ -88,10 +88,10 @@ test "review: valid ZIP64 locator outranks an end signature in the extensible se
 }
 
 ///|
-test "review: invalid ZIP64 locator target falls back to the SFX position" {
+test "invalid ZIP64 locator target falls back to the SFX position" {
   for prefix in [b"MZ", Bytes::make(200, b'p')] {
     for comment in [b"", Bytes::make(65535, b'c')] {
-      let bytes = prefix + review_zip64(comment)
+      let bytes = prefix + stored_archive_with_comment(comment)
       assert_eq(read_all(bytes).get("x"), Some(b"payload"[:]))
       assert_eq(read_member(bytes, listing(bytes), 0, 3), b"payload")
       assert_eq(write(read_all(bytes), preserve=true), bytes)
@@ -107,8 +107,8 @@ test "review: invalid ZIP64 locator target falls back to the SFX position" {
 }
 
 ///|
-test "review: invalid ZIP64 targets and failed SFX probes remain typed errors" {
-  let original = review_zip64(b"")
+test "invalid ZIP64 targets and failed SFX probes remain typed errors" {
+  let original = stored_archive_with_comment(b"")
   let end = find_end_of_central(original).unwrap().offset
   let record = end - 76
   for
