@@ -69,6 +69,9 @@ async fn fixtures() -> Array[(String, Bytes)] {
   guard out.length() == bindings.length() else { fail("fixture export incomplete") }
   for line in @fs.read_text("zip/testdata/SHA256SUMS").split("\n") {
     if line.split("  ").to_array() is [_, name] {
+      // CPython zipfile has no method-9 decoder. The Deflate64 fixtures have
+      // independent expected data and 7-Zip validation in gen_interop.mbtx.
+      if name.has_prefix("7zip-deflate64") { continue }
       out.push(("external/\{name}", @fs.read_binary("zip/testdata/\{name}")))
     }
   }
@@ -117,7 +120,7 @@ async fn main {
   let test_path = "zip/src/python_oracles_test.mbt"
   if @env.args()[1:].contains("--check") {
     guard @json.parse(@fs.read_text(data_path)) is Array(records) else { fail("invalid oracle data") }
-    guard records.length() == inputs.length() + 9 else { fail("oracle catalog count changed") }
+    guard records.length() == inputs.length() + 12 else { fail("oracle catalog count changed") }
     for (id, bytes) in inputs {
       guard records.iter().any(record => match record {
         {"id": String(name), "archive": String(hex), ..} => name == id && hex == @hex.encode(bytes)

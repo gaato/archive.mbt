@@ -34,7 +34,14 @@ Each compressed emission additionally allocates an immutable chunk of at most
 memory retained by that collecting sink belongs to the caller. The full-size
 boundary across entries is checked in `src/review2_wbtest.mbt`.
 Deflate's
-decoder workspace is fixed by the dependency (about 46 KiB); Zstandard's
+decoder workspace is fixed by the dependency (46,592 element-payload bytes).
+Deflate64 uses a **65,536-byte history window**, with fixed Huffman tables,
+builder scratch and unfinished-input storage: **79,384 element-payload bytes**
+from `gaato/deflate/deflate64.decoder_memory_bound()` in 0.4.0, excluding runtime
+object headers and caller buffers. The range reader holds one decoder per
+active entry; a small output limit does not shrink its history. The 147,456-byte
+7-Zip fixtures exercise matches at distance 49,152 on both APIs.
+Zstandard's
 decoder bounds the advertised window with its default maximum window bits
 (27, at most 128 MiB), plus tables and frame/block storage. A small output
 limit is not a codec memory limit. These bounds are owned by the dependencies;
@@ -42,7 +49,10 @@ see [Deflate bounds](https://github.com/gaato/codecs.mbt/blob/main/deflate/RESOU
 and [Zstandard bounds](https://github.com/gaato/codecs.mbt/blob/main/zstd/RESOURCE_BOUNDS.md).
 Whole reads use the trial buffer and one-byte probe described above, or 8 KiB
 counting scratch. Encoders allocate according
-to the level they receive. CRC uses one `gaato/crc.Digest` per active member.
+to the level they receive; Deflate 0.4.0's levels 10–12 use up to 7,056,748
+element-payload bytes for the encoder at its default window. Deflate64 has
+no encoder here: write requests fail with `InvalidArgument` before output.
+CRC uses one `gaato/crc.Digest` per active member.
 
 ## Left to the caller
 

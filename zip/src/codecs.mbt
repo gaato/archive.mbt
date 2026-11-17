@@ -19,6 +19,7 @@
 fn entry_decoder(compression : Compression) -> &@codec_bytes.Decode {
   match compression {
     Deflate => (@deflate.Decoder(until=EndOfMember) : &@codec_bytes.Decode)
+    Deflate64 => (@deflate64.Decoder(until=EndOfMember) : &@codec_bytes.Decode)
     Zstandard => (@zstd.Decoder(until=EndOfMember) : &@codec_bytes.Decode)
     Store => abort("stored entries do not use a decoder")
   }
@@ -28,9 +29,10 @@ fn entry_decoder(compression : Compression) -> &@codec_bytes.Decode {
 fn entry_encoder(
   compression : Compression,
   level : Int32,
-) -> &@codec_bytes.Encode {
+) -> &@codec_bytes.Encode raise ZipError {
   match compression {
     Deflate => (@deflate.Encoder(level~) : &@codec_bytes.Encode)
+    Deflate64 => raise ZipError(InvalidArgument, "zip: Deflate64 is read-only")
     Zstandard => (@zstd.Encoder(level~) : &@codec_bytes.Encode)
     Store => abort("stored entries do not use an encoder")
   }
@@ -41,10 +43,11 @@ fn compress_entry(
   data : BytesView,
   compression : Compression,
   level : Int32,
-) -> Bytes {
+) -> Bytes raise ZipError {
   match compression {
     Store => data.to_owned()
     Deflate => @deflate.compress(data, level~)
+    Deflate64 => raise ZipError(InvalidArgument, "zip: Deflate64 is read-only")
     Zstandard => @zstd.compress(data, level~)
   }
 }

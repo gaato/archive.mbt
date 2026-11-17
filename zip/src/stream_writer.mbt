@@ -254,6 +254,7 @@ fn stream_central_record(
 /// Compress and emit one complete file immediately using the whole-buffer
 /// codec helper. Chunked encoder caches are used by begin_entry instead.
 /// Stored files are sent directly to the sink without an intermediate copy.
+/// Read-only Deflate64 is rejected with `InvalidArgument` before emitting bytes.
 pub fn Writer::add(
   self : Writer,
   name : String,
@@ -261,11 +262,13 @@ pub fn Writer::add(
   compression~ : Compression = Deflate,
 ) -> Unit raise {
   self.require_ready()
+  compression.ensure_writable()
   let name = stream_name(name)
   let crc = @crc.crc32_update(0U, data)
   let compressed : BytesView = match compression {
     Store => data
-    Deflate | Zstandard => compress_entry(data, compression, self.level)
+    Deflate | Deflate64 | Zstandard =>
+      compress_entry(data, compression, self.level)
   }
   let size = data.length().to_uint64()
   let compressed_size = compressed.length().to_uint64()
@@ -287,6 +290,7 @@ pub fn Writer::add(
 /// Open a chunked entry. Supply the known uncompressed size to use classic
 /// headers when it fits safely; unknown sizes reserve ZIP64 fields up front.
 /// The declared size is checked before accepting input and before closing.
+/// Read-only Deflate64 is rejected with `InvalidArgument` before emitting bytes.
 pub fn Writer::begin_entry(
   self : Writer,
   name : String,
@@ -294,6 +298,7 @@ pub fn Writer::begin_entry(
   size? : UInt64,
 ) -> Unit raise {
   self.require_ready()
+  compression.ensure_writable()
   let name = stream_name(name)
   // Reserve ZIP64 using the selected codec's bound, before a header is sent.
   // Core's DEFLATE heuristic does not bound these encoders' worst-case output.
@@ -305,7 +310,7 @@ pub fn Writer::begin_entry(
       // Below the sentinel this narrowing and both bounds fit Int64.
       let bound = match compression {
         Store => n.reinterpret_as_int64()
-        Deflate => @deflate.compress_bound(n.reinterpret_as_int64())
+        Deflate | Deflate64 => @deflate.compress_bound(n.reinterpret_as_int64())
         Zstandard => @zstd.compress_bound(n.reinterpret_as_int64())
       }
       bound >= 0xffff_ffffL
@@ -400,7 +405,7 @@ pub fn Writer::write(self : Writer, bytes : BytesView) -> Unit raise {
   entry.crc.write(bytes)
   match entry.compression {
     Store => self.emit(bytes)
-    Deflate | Zstandard => self.pump(bytes, Continue)
+    Deflate | Deflate64 | Zstandard => self.pump(bytes, Continue)
   }
   entry.size += length
   entry.compressed_size += self.offset - start

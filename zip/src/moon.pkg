@@ -4,6 +4,7 @@ import {
   "moonbitlang/core/buffer",
   "moonbitlang/core/encoding/utf8" @encoding/utf8,
   "gaato/deflate",
+  "gaato/deflate/deflate64",
   "gaato/zstd",
   "gaato/crc",
   "gaato/codec",

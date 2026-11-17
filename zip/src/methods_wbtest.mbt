@@ -169,12 +169,12 @@ test "shared and overlapping local records are refused before decoding" {
 }
 
 ///|
-test "unknown compression including deferred Deflate64 is rejected before payload reads" {
+test "unknown compression is rejected before payload reads" {
   let archive = Archive()
   archive.add("x", b"hello", compression=Store)
   let plain = write(archive)
   let central = find_end_of_central(plain).unwrap().central_offset.reinterpret_as_int()
-  for method_id in [9, 12, 14, 95, 65535] {
+  for method_id in [12, 14, 95, 65535] {
     let changed = plain.to_fixedarray()
     changed[central + 10] = (method_id & 255).to_byte()
     changed[central + 11] = (method_id >> 8).to_byte()

@@ -1,7 +1,7 @@
 # gaato/zip
 
 ZIP archives in pure MoonBit for Native, JS, Wasm and Wasm GC. Read and write
-Store (0), Deflate (8) and Zstandard (93), edit archives in memory, or use
+Store (0), Deflate (8) and Zstandard (93), read Deflate64 (9), edit archives in memory, or use
 range readers and a writer over a caller-supplied sink. The API follows
 MoonBit core's `archive/zip`.
 
@@ -50,9 +50,14 @@ including `Done`. Output remains unverified until `Done` checks sizes and CRC.
 `Writer` takes a synchronous byte sink. Use `add` for a complete file or
 `begin_entry`, `write`, `end_entry` for chunks, then `finish`. Sink failures
 propagate and poison the writer. `level` is the level the selected codec takes:
-it is passed unchanged to gaato/deflate or gaato/zstd. `preserve=true` on
+it is passed unchanged to gaato/deflate or gaato/zstd. With gaato/deflate 0.4.0,
+Deflate levels 0 through 12 are available, including near-optimal levels 10–12.
+`preserve=true` on
 `write` reuses unchanged source records; a pristine archive is byte identical,
 including an SFX prefix. Editing drops bytes outside the records.
+Deflate64 is read-only: `write` (including `preserve=true`), `Writer::add` and
+`Writer::begin_entry` reject it with `InvalidArgument`. A rejected writer
+argument emits no bytes and leaves the writer ready for another entry.
 
 ## Limits and errors
 
@@ -114,7 +119,7 @@ record. Error messages are diagnostic text.
 
 This package performs no filesystem extraction. Path safety (`../`, absolute
 paths and symlinks) is the caller's responsibility. Encryption and split
-archives are unsupported. Deflate64 and wrapped classic entry counts above
+archives are unsupported. Wrapped classic entry counts above
 65,535 without ZIP64 are unsupported. Names must be UTF-8. Zstandard ZIPs
 need readers with method 93 support.
 

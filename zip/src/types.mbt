@@ -14,11 +14,13 @@
 // limitations under the License.
 
 ///|
-/// The ZIP compression methods this package can read and write.
+/// ZIP compression methods. Deflate64 is read-only; writing it raises
+/// `InvalidArgument`.
 #derive(Eq, @debug.Debug)
 pub(all) enum Compression {
   Store
   Deflate
+  Deflate64
   Zstandard
 }
 
@@ -27,7 +29,15 @@ fn Compression::code(compression : Compression) -> Int32 {
   match compression {
     Store => 0
     Deflate => 8
+    Deflate64 => 9
     Zstandard => 93
+  }
+}
+
+///|
+fn Compression::ensure_writable(self : Compression) -> Unit raise ZipError {
+  if self is Deflate64 {
+    raise ZipError(InvalidArgument, "zip: Deflate64 is read-only")
   }
 }
 

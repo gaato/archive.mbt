@@ -176,11 +176,14 @@ priv struct PreparedPayload {
 }
 
 ///|
-/// Compress an entry once using the archive's reusable workspace.
-fn Entry::prepare_payload(entry : Entry, level : Int32) -> PreparedPayload {
+/// Compress an entry once using its selected codec.
+fn Entry::prepare_payload(
+  entry : Entry,
+  level : Int32,
+) -> PreparedPayload raise ZipError {
   match entry.compression {
     Store => { compressed_size: entry.data.length(), compressed: None, }
-    Deflate | Zstandard => {
+    Deflate | Deflate64 | Zstandard => {
       let compressed = compress_entry(entry.data, entry.compression, level)
       { compressed_size: compressed.length(), compressed: Some(compressed), }
     }
@@ -638,7 +641,7 @@ fn Archive::local_order(archive : Archive) -> FixedArray[Int32] {
 ///|
 /// Prepare local records once, measuring exact offsets without allocating the
 /// final ZIP buffer. Preserved and stored payloads continue to reference their
-/// existing bytes. A compressor is allocated only when a fresh Deflate entry
+/// existing bytes. A compressor is allocated only when a fresh compressed entry
 /// is encountered.
 fn prepare_archive(
   out : Output,
@@ -679,7 +682,7 @@ fn prepare_archive(
     }
     let payload = match entry.compression {
       Store => { compressed_size: entry.data.length(), compressed: None, }
-      Deflate | Zstandard => entry.prepare_payload(level)
+      Deflate | Deflate64 | Zstandard => entry.prepare_payload(level)
     }
     out.write_local_record(
       entry,
@@ -846,13 +849,17 @@ fn write_impl(
 /// `level` is passed unchanged to the selected codec, as the level it takes.
 /// If `max_output_bytes` is supplied, the output is sized before allocation
 /// and an oversized archive raises `LimitExceeded(OutputBytes, ...)`.
-/// A negative limit raises `InvalidArgument`.
+/// A negative limit or any read-only Deflate64 entry raises `InvalidArgument`,
+/// including when `preserve=true` could otherwise reuse the source records.
 pub fn write(
   archive : Archive,
   preserve~ : Bool = false,
   max_output_bytes? : Int32,
   level~ : Int32 = 6,
 ) -> Bytes raise ZipError {
+  for entry in archive.entries {
+    entry.compression.ensure_writable()
+  }
   if max_output_bytes is Some(limit) {
     guard limit >= 0 else {
       raise ZipError(InvalidArgument, "zip: output limit must be non-negative")

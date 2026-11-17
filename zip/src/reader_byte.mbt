@@ -230,8 +230,8 @@ fn method_from_code(method_id : Int32) -> Compression raise ZipError {
   match method_id {
     0 => Store
     8 => Deflate
+    9 => Deflate64
     93 => Zstandard
-    // Method 9 (Deflate64) will be added when its decoder is published.
     _ =>
       raise ZipError(
         UnsupportedCompression(method_id),

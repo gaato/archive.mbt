@@ -9,8 +9,14 @@ and earliest errors on both APIs, plus the post-selection classic-signature
 counterexample). The prefix-decoy regression also covers a successful classic
 retry after the selected ZIP64 directory fails full parsing.
 No timing benchmarks are run. `src/python_oracles_test.mbt` additionally checks
-both APIs against generated Python entry-name/content data for all 26 finite
-non-adversarial fixture and interop archives, without Python at test time.
+both APIs against generated Python entry-name/content data for all 29 finite
+Python-readable fixture and interop archives, without Python at test time.
+The three pinned 7-Zip Deflate64 fixtures use their known inputs instead
+(Python has no method-9 decoder). They cover a 147,456-byte entry with a
+verified 49,152-byte match distance, a stored/Deflate64 mix, eager reads and
+small-output range reads. `src/deflate64_wbtest.mbt` checks write rejection,
+writer recovery and levels 10–12, including a level-12/level-9 difference;
+the external interop checks accept level-12 writes with Python and unzip.
 
 `scripts/coverage_report.mbtx` is adapted from codecs.mbt. It runs Native
 instrumentation, clears stale counters/maps and checks exact uncovered-line
@@ -45,7 +51,7 @@ separately below; an uncovered line is not evidence of a verified contract.
 | src/stream_writer.mbt | 1 | Wrapping an encoder error is defensive: the pinned encoders receive no dictionary and valid actions/parameters and do not fail under that use. Sink failures are tested independently and propagate unchanged. |
 | src/writer.mbt | 12 | Negative output count, u16 overflow and malformed preserved templates are defensive behind validated internal records. The helper's Store branch is bypassed by the archive dispatcher. Not yet tested: patching a preserved central record that encodes its local offset in a ZIP64 extra field (three lines). |
 
-Native measurement on 2026-11-17: **1143/1185 executable lines (96.5%)**, with
+Native measurement on 2026-11-17: **1153/1195 executable lines (96.5%)**, with
 42 uncovered lines accounted for exactly above. Public metadata accessors,
 CRC and the byte parser are fully covered by this measurement. The ledger
 does not count dependency code as coverage of this module.

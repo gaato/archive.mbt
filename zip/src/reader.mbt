@@ -390,7 +390,7 @@ fn decode_entry(
         )
         copy_cancellable(record.compressed, cancelled)
       }
-      Deflate | Zstandard =>
+      Deflate | Deflate64 | Zstandard =>
         inflate_declared_entry(
           record.compressed,
           meta.uncompressed_size,

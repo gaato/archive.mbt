@@ -45,7 +45,7 @@ async fn main {
   let mut skipped = 0
   for line in result.stdout().split("\n") {
     if line.split(" ").to_array() is [name, encoded] {
-      guard name.has_prefix("store-") || name.has_prefix("deflate-") || name.has_prefix("zstd-") else { fail("unexpected producer output") }
+      guard name.has_prefix("store-") || name.has_prefix("deflate-") || name.has_prefix("deflate12-") || name.has_prefix("zstd-") else { fail("unexpected producer output") }
       guard !name.contains("/") else { fail("unsafe archive name") }
       let bytes = @hex.decode(encoded)
       let path = "\{directory}/\{name}.zip"
@@ -79,6 +79,6 @@ async fn main {
       count += 1
     }
   }
-  guard count == 9 else { fail("expected nine archives, got \{count}") }
+  guard count == 12 else { fail("expected twelve archives, got \{count}") }
   println("interop \{target}: \{count} archives, \{checks} external checks passed, \{skipped} unsupported checks skipped")
 }

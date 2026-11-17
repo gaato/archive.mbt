@@ -36,6 +36,7 @@ pub fn Archive::set_comment(Self, BytesView) -> Unit
 pub(all) enum Compression {
   Store
   Deflate
+  Deflate64
   Zstandard
 }
 pub fn Compression::equal(Self, Self) -> Bool

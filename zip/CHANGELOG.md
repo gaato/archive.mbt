@@ -8,6 +8,13 @@
 - Store, Deflate and Zstandard reading and writing through gaato codecs.
 - SFX offset correction, overlap rejection and structured codec errors.
 - Bounded range readers, archive editing and incremental writer from core.
+- Read-only `Compression::Deflate64` (method 9) using gaato/deflate 0.4.0,
+  including range reads and a 64 KiB history window. Writing it raises
+  `InvalidArgument`, including preserved writes.
+- Deflate levels 10–12 through the upgraded dependency; level-12 whole and
+  chunked output is checked by Python zipfile, unzip and 7-Zip.
+- Three reproducible, hash-pinned 7-Zip Deflate64 fixtures, including a
+  147,456-byte member using 49,152-byte distances and a Store/Deflate64 mix.
 
 ### Fixed
 

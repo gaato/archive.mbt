@@ -22,21 +22,28 @@ No upstream issue or pull request is opened by this implementation task.
 
 ## Intentional differences from core
 
-- `gaato/deflate@0.3.0`, `gaato/zstd@0.5.1`, `gaato/crc@0.1.0`,
+- `gaato/deflate@0.4.0`, `gaato/zstd@0.5.1`, `gaato/crc@0.1.0`,
   `gaato/codec@0.1.1` and `gaato/codec_bytes@0.1.2` replace experimental
   core flate/checksum dependencies. Entry readers hold `&@codec_bytes.Decode`;
   streaming writers hold `&@codec_bytes.Encode`.
 - Compression method 93 is `Zstandard`, readable and writable. Its generated
   headers declare ZIP version 6.3. Store and Deflate retain IDs 0 and 8.
+- Compression method 9 is `Deflate64`, read through
+  `gaato/deflate/deflate64.Decoder(until=EndOfMember)` behind the same
+  `&@codec_bytes.Decode` path as the other codecs. It has a 64 KiB history
+  window. It is read-only: `write`, including preserved writes, and both
+  streaming entry-start APIs reject it with `InvalidArgument` before output.
 - `InvalidDeflate` is replaced by `Codec(@codec.ErrorKind)`. Codec truncation
   and trailing data now remain `Codec(Truncated)` and `Codec(TrailingData)`;
   record/container truncation stays `Truncated`. Codec diagnostic messages
   consequently differ. Cancellation remains ZIP's `Cancelled`.
 - `fast_store` is absent from both `write` and `Writer`.
 - The level argument goes unchanged to the selected codec. As clarified by
-  the user, ZIP imposes no level range or clamping. Tests use 0 through 9;
-  changing the deflate dependency will enable its future levels without a
-  ZIP API change. The same argument is passed to Zstandard's encoder.
+  the user, ZIP imposes no level range or clamping. Deflate 0.4.0 adds levels
+  10 through 12; tests cover forwarding them through whole and streaming
+  writers, with a corpus whose level-12 encoding differs from level 9.
+  Python zipfile, unzip and 7-Zip validate level-12 output on all targets.
+  The same level argument is passed to Zstandard's encoder.
 - A gap between recorded directory offsets and its physical end is added
   to the directory and local offsets, like Python's `zipfile` concat
   adjustment. SFX classic and standard ZIP64 archives work with both APIs,
@@ -162,10 +169,11 @@ error for the empty decoy; that is not evidence of recovering the real entries.
 The gaato row is asserted with names and contents on both APIs, plus separate
 tests for two valid EOF-reaching records, tier priority and earliest errors.
 
-The task brief explicitly defers Deflate64 until its decoder is published,
-overriding the earlier design's method-9 plan. There is no placeholder enum
-variant or pretending decoder; method 9 raises `UnsupportedCompression(9)`.
-Its future dispatch location is marked in `reader_byte.mbt`.
+The initial port deferred Deflate64 until its decoder was published. The
+0.4.0 dependency now enables the approved read-only method-9 design; other
+unknown method numbers still raise `UnsupportedCompression(id)` before data
+reads. A decoded Deflate64 archive must have those entries removed or copied
+into new writable-method entries before it can be serialized.
 
 ZIP64 SFX adjustment follows Python's ordinary fixed 56-byte ZIP64 end record.
 Unprefixed ZIP64 end records with an extensible sector retain core's support.
@@ -187,8 +195,9 @@ fixtures in `interop_vectors_test.mbt` let all targets read the same archives
 without filesystem access. `--check` verifies the hashes and embedded source;
 regeneration uses the installed producer versions, which can change bytes.
 
-`scripts/interop.mbtx` tests nine produced archives per target: each method
-with whole-buffer, classic chunked and ZIP64 chunked writing. Python calls
+`scripts/interop.mbtx` tests twelve produced archives per target: Store,
+Deflate, Zstandard and Deflate at level 12, each with whole-buffer, classic
+chunked and ZIP64 chunked writing. Python calls
 `testzip()` and compares exact contents; unzip and 7z test archive integrity.
 No archive is extracted. All temporary files are under `_build/interop-*`.
 The gates compare the bytes of the other targets against Native's files.
@@ -198,13 +207,25 @@ Zstandard checks report an explicit unsupported-method skip. The local 7-Zip
 can decode these ZIPs but `7z i` advertises no Zstandard encoder; generation
 records that skip. Python supplies the independent Zstandard fixture.
 
+7-Zip 26.04 supplies three pinned method-9 archives: a small Deflate64 entry,
+a 147,456-byte entry, and that entry together with a stored entry. The large
+payload repeats a seeded 49,152-byte noise block three times. An independent
+Huffman/token walker in the fixture generator verifies the compressed member
+actually uses distance **49,152**, beyond ordinary Deflate's 32 KiB history;
+`--check` repeats this structural check along with the SHA-256 checks. During
+generation, 7-Zip tests integrity and returns exact contents through stdout.
+Both APIs compare the generated expected data on every target. CPython
+zipfile cannot decode method 9, so those three fixtures use 7-Zip and their
+known inputs instead of a Python content oracle.
+
 `scripts/gen_python_oracles.mbtx` additionally records CPython `zipfile`'s
 ordered entry names and exact contents in `zip/testdata/python-oracles.json`.
 The generated `python_oracles_test.mbt` compares both APIs with those answers
 on all four targets, with no Python process during `moon test`. Its catalog
 covers every finite non-adversarial archive constant (the five upstream ZIPs
-and the empty archive), all six external interop archives and all nine writer
-outputs, and the five ordinary survey cases a/b/c/f/f2: 26 archives. The explicitly lying ZIP64 size fixture and crafted
+and the empty archive), the six Python-readable external archives and all
+twelve writer outputs, and the five ordinary survey cases a/b/c/f/f2:
+29 archives. The explicitly lying ZIP64 size fixture and crafted
 decoy/malformed regressions are adversarial and intentionally do not use
 Python as their oracle; the >4 GiB synthetic range source is not a finite
 archive fixture. The generator checks the constant catalog, source hashes

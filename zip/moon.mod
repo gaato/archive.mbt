@@ -8,7 +8,7 @@ readme = "README.md"
 
 repository = "https://github.com/gaato/archive.mbt"
 
-description = "Bounded ZIP archives with Store, Deflate and Zstandard, in pure MoonBit."
+description = "Bounded ZIP archives with Store, Deflate and Zstandard writing and Deflate64 reading, in pure MoonBit."
 
 keywords = [ "zip", "archive", "deflate", "zstandard" ]
 
@@ -19,7 +19,7 @@ preferred_target = "native"
 supported_targets = "js + native + wasm + wasm-gc"
 
 import {
-  "gaato/deflate@0.3.0",
+  "gaato/deflate@0.4.0",
   "gaato/zstd@0.5.1",
   "gaato/crc@0.1.0",
   "gaato/codec@0.1.1",
