@@ -20,7 +20,7 @@ supported_targets = "js + native + wasm + wasm-gc"
 
 import {
   "gaato/deflate@0.4.0",
-  "gaato/zstd@0.5.1",
+  "gaato/zstd@0.6.0",
   "gaato/crc@0.1.0",
   "gaato/codec@0.1.1",
   "gaato/codec_bytes@0.1.2",

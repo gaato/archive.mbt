@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Zstandard (gaato/zstd 0.6.0)** uses distinct strategies at levels 13–22,
+  which can change compressed bytes and increase encoder memory use. Levels
+  above 22 use level 22. Pass level 12 to retain the former high-level
+  behavior. The ZIP writers still default to level 6.
+- Updated the CI toolchain to MoonBit 0.10.21.
+
 ## [0.1.0] - 2026-11-17
 
 ### Added

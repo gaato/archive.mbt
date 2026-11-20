@@ -22,7 +22,7 @@ No upstream issue or pull request is opened by this implementation task.
 
 ## Intentional differences from core
 
-- `gaato/deflate@0.4.0`, `gaato/zstd@0.5.1`, `gaato/crc@0.1.0`,
+- `gaato/deflate@0.4.0`, `gaato/zstd@0.6.0`, `gaato/crc@0.1.0`,
   `gaato/codec@0.1.1` and `gaato/codec_bytes@0.1.2` replace experimental
   core flate/checksum dependencies. Entry readers hold `&@codec_bytes.Decode`;
   streaming writers hold `&@codec_bytes.Encode`.
@@ -81,8 +81,6 @@ No upstream issue or pull request is opened by this implementation task.
   the replacement encoders have different worst-case sizes. This is tested
   near the 32-bit sentinel without allocating a large payload. Store uses its
   exact input size, so it can keep classic headers closer to that sentinel.
-- Core's newer `Buffer(capacity=...)` spelling is adapted to the pinned
-  toolchain's `Buffer(size_hint=...)`; this has no API or format effect.
 
 ## Decisions and limits relative to the design
 

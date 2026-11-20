@@ -49,9 +49,11 @@ including `Done`. Output remains unverified until `Done` checks sizes and CRC.
 
 `Writer` takes a synchronous byte sink. Use `add` for a complete file or
 `begin_entry`, `write`, `end_entry` for chunks, then `finish`. Sink failures
-propagate and poison the writer. `level` is the level the selected codec takes:
-it is passed unchanged to gaato/deflate or gaato/zstd. With gaato/deflate 0.4.0,
-Deflate levels 0 through 12 are available, including near-optimal levels 10–12.
+propagate and poison the writer. Both `Writer` and `write` default to level 6
+and pass `level` unchanged to the selected codec. Deflate supports levels
+0–12, including near-optimal levels 10–12. Zstandard levels 13–22 can use
+substantially more memory, especially with chunked writes. Values above 22
+use level 22.
 `preserve=true` on
 `write` reuses unchanged source records; a pristine archive is byte identical,
 including an SFX prefix. Editing drops bytes outside the records.

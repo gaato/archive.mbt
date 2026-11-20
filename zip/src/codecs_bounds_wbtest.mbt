@@ -86,7 +86,7 @@ test "Zstandard: truncation, trailing frames, frame checksum and ZIP output boun
   catch {
     ZipError(
       LimitExceeded(kind=EntryUncompressedBytes, limit=100UL, observed~),
-      _
+      _,
     ) => assert_true(observed > 100UL)
     err => raise err
   } noraise {

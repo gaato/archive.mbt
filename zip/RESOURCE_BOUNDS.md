@@ -48,9 +48,13 @@ limit is not a codec memory limit. These bounds are owned by the dependencies;
 see [Deflate bounds](https://github.com/gaato/codecs.mbt/blob/main/deflate/RESOURCE_BOUNDS.md)
 and [Zstandard bounds](https://github.com/gaato/codecs.mbt/blob/main/zstd/RESOURCE_BOUNDS.md).
 Whole reads use the trial buffer and one-byte probe described above, or 8 KiB
-counting scratch. Encoders allocate according
-to the level they receive; Deflate 0.4.0's levels 10–12 use up to 7,056,748
-element-payload bytes for the encoder at its default window. Deflate64 has
+counting scratch. Encoders allocate according to the level they receive.
+Deflate 0.4.0's levels 10–12 use up to 7,056,748 element-payload bytes for
+the encoder at its default window. The chunked ZIP writer constructs its
+Zstandard encoder without a content size, even when a ZIP entry has a declared
+size. At level 22, gaato/zstd 0.6.0 bounds that encoder at 942,375,476
+element-payload bytes. Whole-buffer compression supplies the input size,
+which can reduce that bound. Deflate64 has
 no encoder here: write requests fail with `InvalidArgument` before output.
 CRC uses one `gaato/crc.Digest` per active member.
 
