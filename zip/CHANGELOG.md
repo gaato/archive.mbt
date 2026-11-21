@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Updated the CI toolchain to MoonBit 0.10.22.
+
 ## [0.1.2] - 2026-11-21
 
 ### Changed
