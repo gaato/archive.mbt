@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-21
+
 ### Changed
 
+- **The README is rewritten**: complete examples of reading an archive in memory, reading one entry through byte ranges and streaming a new archive to a sink, with the read limits and the errors.
 - **Zstandard (gaato/zstd 0.6.0)** uses distinct strategies at levels 13–22,
   which can change compressed bytes and increase encoder memory use. Levels
   above 22 use level 22. Pass level 12 to retain the former high-level
