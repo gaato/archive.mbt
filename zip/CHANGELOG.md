@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-21
+
+### Changed
+
+- **Depends on gaato/deflate 0.4.1, gaato/zstd 0.6.1, gaato/crc 0.1.1, gaato/codec 0.1.2 and gaato/codec_bytes 0.1.3**, which decode and encode faster with the same bytes out; archives read and written are unchanged.
+
 ## [0.1.1] - 2026-11-21
 
 ### Changed
